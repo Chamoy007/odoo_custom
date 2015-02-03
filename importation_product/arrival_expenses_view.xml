@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<openerp>
+    <data>
+        
+       
+        <!-- view_arrival_expenses_tree -->
+        <record id="view_arrival_expenses_tree" model="ir.ui.view">
+            <field name="name">view.arrival.expenses.tree</field>
+            <field name="model">arrival.expenses</field>
+            <field name="arch" type="xml">
+                <tree string="Gastos de Llegada" >
+                    <field name="number"/>
+                    <field name="name"/>
+                    <field name="date_invoice"/>
+                    <field name="amount_total" sum="SUM Monto Total"/>
+                    <field name="tax"/>
+                </tree>
+            </field>
+        </record>
+
+        <!-- view_arrival_expenses_form -->
+        <record id="view_arrival_expenses_form" model="ir.ui.view">
+            <field name="name">view.arrival.expenses.form</field>
+            <field name="model">arrival.expenses</field>
+            <field name="arch" type="xml">
+                <form string="Gastos de Llegada" version="7.0">
+                    <sheet>
+                        <div class="oe_title" colspan="4">
+                            <label for="name" class="oe_edit_only" />
+                            <h1><field name="name" /></h1>
+                        </div>
+                        <group string ="Factura" >
+                            <group colspan="4" col="6">
+                                <field name="number" />
+                                <field name="date_invoice" />
+                                <field name="tax" />
+                                <field name="currency_id" readonly="1"/>
+                                <field name="ir_attachment_id" invisible="1" />
+                            </group>
+                            <group colspan="4" col="6">
+                                <field name="amount_subtotal"/>
+                                <field name="amount_tax" />
+                                <field name="amount_total" />
+                            </group>
+                            <group colspan="4" col="4">
+                                <field name="arrival_expenses_line_ids" nolabel="1">
+                                    <tree string="Productos" editable="buttom">
+                                        <field name="name"/>
+                                        <field name="product_qty"/>
+                                        <field name="price_unit"/>
+                                    </tree>
+                                </field>
+                            </group>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+    </data>
+</openerp>

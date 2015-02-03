@@ -1,0 +1,3 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_purchase_import,purchase.import,model_purchase_import,,1,1,1,1
+access_arrival_expenses,arrival.expenses,model_arrival_expenses,,1,1,1,1

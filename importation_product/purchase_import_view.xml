@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="utf-8"?>
+<openerp>
+    <data>
+        
+        <menuitem id="menu_purchase_import" name="Importaciones"
+            parent="base.menu_purchase_root" sequence="1" />
+
+        <!-- view_purchase_import_tree -->
+        <record id="view_purchase_import_tree" model="ir.ui.view">
+            <field name="name">view.purchase.import.tree</field>
+            <field name="model">purchase.import</field>
+            <field name="arch" type="xml">
+                <tree string="Importaciones" >
+                    <field name="name"/>
+                    <field name="arrival"/>
+                    <field name="shipment_type_id"/>
+                    <field name="shipment_method"/>
+                    <field name="state"/>
+                </tree>
+            </field>
+        </record>
+
+        <!-- view_purchase_import_form -->
+        <record id="view_purchase_import_form" model="ir.ui.view">
+            <field name="name">view.purchase.import.form</field>
+            <field name="model">purchase.import</field>
+            <field name="arch" type="xml">
+                <form string="Importaciones" version="7.0">
+                    <header>
+                        <button name="action_estimated_cost_calculation" string="Estimar Costo" states="draft" type="object"/>
+                        <button name="action_real_cost_calculation" string="Calcular Costo Real" states="estimated,completed" type="object"/>
+                        <button name="action_import_completed" string="Gastos de llegada Agregados" states="estimated" type="object"/>
+                        <button name="action_import_cancel" string="Cancelar Importación" states="draft" type="object"/>
+                        <button name="action_import_cancel_draft" string="Reabrir Importación" states="cancel" type="object"/>
+                        <field name="state" widget="statusbar" statusbar_visible="draft,estimated,completed,done,cancel" />
+                    </header>
+                    <sheet>
+                        <div class="oe_title" colspan="4">
+                            <label for="name" class="oe_edit_only" />
+                            <h1><field name="name" /></h1>
+                        </div>
+                        <group string ="General" >
+                            <group >
+                            <field name="shipment_type_id" />
+                            <field name="shipment_method" />
+                            </group>
+                            <group >
+                                <field name="creation_date"/>
+                                <field name="arrival" />
+                            </group>
+                        </group>
+                        <notebook>
+                            <page string="Gasto de porte o envío">
+                                <group colspan="8" col="8">
+                                    <field name="supplier_id" colspan="2" context="{'search_default_supplier':1, 'default_supplier':1,'default_customer':0}"/>
+                                    <field name="amount_expense" colspan="2"/>
+                                    <field name="currency_id" colspan="2"/>
+                                    <button name="create_invoice" string="Crear Factura" type="object" attrs="{'invisible':[('state','!=', 'draft')]}"/>
+                                </group>
+                                <group colspan="4">
+                                    <field name="invoice_supplier_ids" nolabel="1"/>
+                                </group>
+                            </page>
+                            <page string="Estimado de llegada">
+                                <group>
+                                    <field name="custom_supplier_id" context="{'search_default_supplier':1, 'default_supplier':1,'default_customer':0}" attrs="{'readonly':[('voucher_id','!=', False)]}"/>
+                                    <field name="custom_currency_id" />
+                                    <field name="voucher_id"/>
+                                </group>
+                                <group>
+                                    <button name="create_payment_customs" string="Crear Pago a Aduana" type="object" attrs="{'invisible':[('voucher_id','!=', False)]}"/>
+                                </group>
+                            </page>
+                            <page string="Gastos de llegada">
+                                <group colspan="4" col="6">
+                                    <field name="xml_file"/>
+                                    <field name="currency_arrival_id"/>
+                                    <button name="add_xml" string="Agregar Factura" type="object" attrs="{'invisible':[('state','!=', 'estimated')]}"/>
+                                </group>
+                                <field name="arrival_expenses_id" nolabel="1" attrs="{'readonly':[('state','!=', 'estimated')]}"/>
+                            </page>
+                            <page string="Compras relacionas">
+                                <field name="purchase_related_ids" nolabel="1"/>
+                            </page>
+                            <page string="Otra Información">
+                                <group>
+                                    <field name="total_volume" />
+                                    <field name="total_weight" />
+                                </group>
+                                <group>
+                                    <field name="expenses_total" />
+                                    <field name="invoice_refund_id" />
+                                </group>
+                            </page>
+                        </notebook>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+         <!-- action_purchase_import -->
+        <record id="action_purchase_import" model="ir.actions.act_window">
+            <field name="name">Importaciones</field>
+            <field name="res_model">purchase.import</field>
+            <field name="view_type">form</field>
+            <field name="view_mode">tree,form</field>
+            <field name="view_id" ref="view_purchase_import_tree"/>
+            <field name="help" type="html">
+                <p class="oe_view_nocontent_create">Crea la primer importación</p>
+            </field>
+        </record>
+
+        <!-- action_purchase_import -->
+        <menuitem
+            action="action_purchase_import" id="action_menu_purchase_import"
+            parent="menu_purchase_import" sequence="2"/>
+        
+        
+        <!-- view_shipment_type_tree -->
+        <record id="view_shipment_type_tree" model="ir.ui.view">
+            <field name="name">view.shipment.type.tree</field>
+            <field name="model">shipment.type</field>
+            <field name="arch" type="xml">
+                <tree string="Tipo de Envio" >
+                    <field name="name"/>
+                </tree>
+            </field>
+        </record>
+
+        <!-- view_shipment_type_form -->
+        <record id="view_shipment_type_form" model="ir.ui.view">
+            <field name="name">view.shipment.type.form</field>
+            <field name="model">shipment.type</field>
+            <field name="arch" type="xml">
+                <form string="Tipo de Envio" version="7.0">
+                    <sheet>
+                        <div class="oe_title" colspan="4">
+                            <label for="name" class="oe_edit_only" />
+                            <h1><field name="name" /></h1>
+                        </div>
+                        <group string ="Descripción" colspan="4" col="6">
+                            <field name="description" nolabel="1" colspan="2"/>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+        
+        <!-- action_shipment_type -->
+        <record id="action_shipment_type" model="ir.actions.act_window">
+            <field name="name">Tipo de Envio</field>
+            <field name="res_model">shipment.type</field>
+            <field name="view_type">form</field>
+            <field name="view_mode">tree,form</field>
+            <field name="view_id" ref="view_shipment_type_tree"/>
+            <field name="help" type="html">
+                <p class="oe_view_nocontent_create">Crea la primer Tipo de envio</p>
+            </field>
+        </record>
+        
+        <!-- action_purchase_import -->
+        <menuitem
+            action="action_shipment_type" id="action_menu_shipment_type"
+            parent="menu_purchase_import" sequence="3"/>
+
+    </data>
+</openerp>

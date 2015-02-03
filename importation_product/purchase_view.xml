@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<openerp>
+    <data>
+        
+         <record model="ir.ui.view" id="purchase_order_form_inherit">
+            <field name="name">purchase.order.form.inherit</field>
+            <field name="model">purchase.order</field>
+            <field name="inherit_id" ref="purchase.purchase_order_form" />
+            <field name="arch" type="xml" >
+                <field name="origin" position="after">
+                    <field name="type"/>
+                    <field name="total_volume"/>
+                    <field name="total_weight"/>
+                </field>
+                <button name="purchase_confirm" states="draft" string="Confirm Order" id="draft_confirm" position="after">
+                    <button name="purchase_import" states="draft" string="Importar" type="object"/>
+                </button>
+                <xpath expr="//field[@name='order_line']/tree//field[@name='product_qty']" position="after">
+                    <field name="volume" readonly="1"/>
+                    <field name="weight" readonly="1"/>
+                    <field name="ref_percentage" readonly="1"/>
+                    <field name="unit_cost" readonly="1"/>
+                </xpath>
+            </field>
+        </record>
+        
+    </data>
+</openerp>
