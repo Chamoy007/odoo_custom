@@ -80,7 +80,7 @@
                                 <field name="arrival_expenses_id" nolabel="1" attrs="{'readonly':[('state','!=', 'estimated')]}"/>
                             </page>
                             <page string="Compras relacionas">
-                                <field name="purchase_related_ids" nolabel="1"/>
+                                <field name="purchase_related_ids" nolabel="1" context="{'search_default_draft':1}"/>
                             </page>
                             <page string="Otra Información">
                                 <group>
