@@ -30,7 +30,7 @@
                         <button name="action_estimated_cost_calculation" string="Estimar Costo" states="draft" type="object"/>
                         <button name="action_real_cost_calculation" string="Calcular Costo Real" states="estimated,completed" type="object"/>
                         <button name="action_import_completed" string="Gastos de llegada Agregados" states="estimated" type="object"/>
-                        <button name="action_import_cancel" string="Cancelar Importación" states="draft" type="object"/>
+                        <button name="action_import_cancel" string="Cancelar Importación" states="draft,estimated,completed,done" type="object"/>
                         <button name="action_import_cancel_draft" string="Reabrir Importación" states="cancel" type="object"/>
                         <field name="state" widget="statusbar" statusbar_visible="draft,estimated,completed,done,cancel" />
                     </header>
@@ -63,12 +63,12 @@
                             </page>
                             <page string="Estimado de llegada">
                                 <group>
-                                    <field name="custom_supplier_id" context="{'search_default_supplier':1, 'default_supplier':1,'default_customer':0}" attrs="{'readonly':[('voucher_id','!=', False)]}"/>
+                                    <field name="custom_supplier_id" context="{'search_default_supplier':1, 'default_supplier':1,'default_customer':0}" attrs="{'readonly':['|',('voucher_id','!=', False),('state','!=','draft')]}"/>
                                     <field name="custom_currency_id" />
                                     <field name="voucher_id"/>
                                 </group>
                                 <group>
-                                    <button name="create_payment_customs" string="Crear Pago a Aduana" type="object" attrs="{'invisible':[('voucher_id','!=', False)]}"/>
+                                    <button name="create_payment_customs" string="Crear Pago a Aduana" type="object" attrs="{'invisible':['|',('voucher_id','!=', False),('state','!=','draft')]}"/>
                                 </group>
                             </page>
                             <page string="Gastos de llegada">

@@ -40,18 +40,27 @@ class purchase_import(osv.Model):
     _name = 'purchase.import'
     
     def _get_default_company(self, cr, uid, context=None):
+        """
+        Método para obtener por default la empresa del usuario
+        """
         company_id = self.pool.get('res.users')._get_company(cr, uid, context=context)
         if not company_id:
             raise osv.except_osv(_('Error!'), _('El usuario no tiene una compañia asignada'))
         return company_id
         
     def _get_default_currency_USD(self, cr, uid, context=None):
+        """
+        Metodo para obtener por default la moneda dedolares
+        """
         model,currency_id = self.pool.get('ir.model.data').get_object_reference(cr, uid, 'base', 'USD')
         if not currency_id:
             raise osv.except_osv(_('Error!'), _('No existe la moneda USD'))
         return currency_id
     
     def _get_total_volume(self, cr, uid, ids, field_names=None, arg=False, context=None):
+        """
+        Funcion para calcular el volumen total de las compras agregadas a la importacion
+        """
         if context is None:
             context = {}
         res = {}
@@ -63,6 +72,9 @@ class purchase_import(osv.Model):
         return res
         
     def _get_total_weight(self, cr, uid, ids, field_names=None, arg=False, context=None):
+        """
+        Funcion para calcular el peso total de las compras agregadas a la importacion
+        """
         if context is None:
             context = {}
         res = {}
@@ -268,24 +280,36 @@ class purchase_import(osv.Model):
         }
     
     def get_ref_percentage(self, cr, uid, import_id, purchase_rows, context=None):
+        """
+        Obtenemos la cantidad que se debe aumentar por linea de compra dependiendo si es Aereo o maritimo
+        """
         import_row = self.browse(cr, uid, import_id)
+        # Se recorren todas las compras para calcular el % de referencia por linea de compra
         for purchase_row in purchase_rows:
             for line_row in purchase_row.order_line:
+                # Se valida si el metodo de envio es Maritimo o arero para realizar el calculo de la referencia
                 if import_row.shipment_method == 'air':
                     ref_percentage = round(float(((line_row.product_id.weight / import_row.total_weight) * 100) * line_row.product_qty), 2)
                 elif import_row.shipment_method == 'maritime':
                     ref_percentage = round(float(((line_row.product_id.volume / import_row.total_volume) * 100) * line_row.product_qty), 2)
+                # Calculamos el costo unitario que se sumara a cada precio de costo de las lineas de comrpa
                 unit_cost = round(float(((ref_percentage/line_row.product_qty) * import_row.expenses_total) / 100), 2)
                 new_cost = unit_cost + line_row.supplier_product_cost
+                # Actualizamos el precio de coste por linea de compra
                 self.pool.get('purchase.order.line').write(cr, uid, [line_row.id],{'ref_percentage': ref_percentage, 'unit_cost':unit_cost, 'price_unit':new_cost})
         return True
     
     def calculate_product_cost(self, cr, uid, ids, context=None):
+        """
+        Calculamos el gastototal de llegada del producto
+        """
         # Obtenemos el ID de la moneda de Dolares
         model,currency_id = self.pool.get('ir.model.data').get_object_reference(cr, uid, 'base', 'USD')
         currency_row = self.pool.get('res.currency').browse(cr, uid, currency_id)
         system_rate = round(1 / currency_row.rate, 2)
+        # Recorremos las importaciones para hacer el calculo pro importacion
         for import_row in self.browse(cr, uid, ids, context):
+            # Se valida que existan Gastos de envio agregados, compras o pago de estimado de llegada agregados a la importacion
             if not import_row.invoice_supplier_ids:
                 raise osv.except_osv(_('Error!'), _('No existen Gastos de porte o envio agregados.'))
             if not import_row.voucher_id:
@@ -293,7 +317,9 @@ class purchase_import(osv.Model):
             if not import_row.purchase_related_ids:
                 raise osv.except_osv(_('Error!'), _('No existen compras agregadas a la importacion.'))
             expenses_total = 0.0
+            # Si se realiza el calculo del costo en estado draft se calcula con los gastos estimados de llegada
             if import_row.state == 'draft':
+                # Se recorren las facturas de porte o envio agregadas
                 for invoice_row in import_row.invoice_supplier_ids:
                     if invoice_row.state not in ('open','paid'):
                         raise osv.except_osv(_('Error!'), _('Existen facturas de Gastos de porte o envio sin validar.'))
@@ -301,9 +327,11 @@ class purchase_import(osv.Model):
                         expenses_total += float(invoice_row.amount_total/system_rate)
                     else:
                         expenses_total += float(invoice_row.amount_total)
+            # Si se realiza el calculo en estado esimado completo o done se realiza el calculo con los montos reales agregados.
             elif import_row.state in ('estimated','completed','done'):
                 if not import_row.arrival_expenses_id:
                     raise osv.except_osv(_('Error!'), _('No existen Gastos de Llegada ingresados.'))
+                # Se recorren las facturas con montos reales agregados a la importacion
                 for expense_row in import_row.arrival_expenses_id:
                     if expense_row.tax:
                         if expense_row.currency_id.id != currency_row.id:
@@ -315,11 +343,16 @@ class purchase_import(osv.Model):
                             expenses_total += float(expense_row.amount_subtotal/system_rate)
                         else:
                             expenses_total += float(expense_row.amount_subtotal)
+            # Se suma el pago realizado a los gastos
             expenses_total += import_row.voucher_id.amount
+            # Se actualiza en al importacion
             self.write(cr, uid, [import_row.id], {'expenses_total':expenses_total})
         return True
     
     def copy_product_cost(self, cr, uid, purchase_ids, context=None):
+        """
+        Metodo para guardar el costo del proveedor antes de realizar los calculos de gastos por importacion
+        """
         for purchase_row in self.pool.get('purchase.order').browse(cr, uid, purchase_ids):
             for line_row in purchase_row.order_line:
                 self.pool.get('purchase.order.line').write(cr, uid, [line_row.id],{'supplier_product_cost': line_row.price_unit})
@@ -331,14 +364,22 @@ class purchase_import(osv.Model):
         """
         self.calculate_product_cost(cr, uid, ids, context)
         import_row = self.browse(cr, uid, ids)[0]
+        # Obtenemos los ids delas ocmpras relacionadas
         purchase_ids = [purchase_row.id for purchase_row in import_row.purchase_related_ids]
+        # Copiamos los costos de las lineas de compra a otro campo de la linea de compra
         self.copy_product_cost(cr, uid, purchase_ids, context)
+        # Calculamos el porcentaje de referencia y costo unitario por linea de compra
         self.get_ref_percentage(cr, uid, import_row.id, import_row.purchase_related_ids, context)
+        # Validamos las compras relacionadas
         self.pool.get('purchase.order').signal_workflow(cr, uid, purchase_ids, 'purchase_confirm', context=context)
+        # Combiamos el estado a estimado
         self.write(cr, uid, ids, {'state':'estimated'})
         return True
     
     def validate_purchase(self, cr, uid, purchase_rows, context=None):
+        """
+        Se valida si las entrasdas de las compras ya han sido procesadas
+        """
         for purchase_row in purchase_rows:
             for picking_row in purchase_row.picking_ids:
                 if picking_row.state not in ('done','cancel'):
@@ -346,10 +387,15 @@ class purchase_import(osv.Model):
         return True
     
     def update_standard_price(self, cr, uid, purchase_rows, context=None):
+        """
+        Metodo para actualizar el precio dle producto si este tiene metodo de costeo como medio
+        """
         product_obj = self.pool.get('product.product')
+        # Serecorren las lienas de las compras para agregar el nuevo costo por linea de proeducto
         for purchase_row in purchase_rows:
             for line_row in purchase_row.order_line:
                 if line_row.product_id:
+                    # Si el metodo de costeo del producto es Medio lo calculamos
                     if line_row.product_id.cost_method == 'average':
                         new_std_price = ((line_row.product_standard_price * line_row.product_qty_before_incoming) + (line_row.price_unit * line_row.product_qty)) / (line_row.product_qty_before_incoming + line_row.product_qty)
                         # Write the standard price, as SUPERUSER_ID because a warehouse manager may not have the right to write on products
@@ -405,9 +451,13 @@ class purchase_import(osv.Model):
         import_row = self.browse(cr, uid, ids)[0]
         if not self.validate_purchase(cr, uid, import_row.purchase_related_ids, context):
             raise osv.except_osv(_('Error!'), _('No se han realizado todas las entradas de las compras.'))
+        # Calculamos el costo del producto
         self.calculate_product_cost(cr, uid, ids, context)
+        # Obtenemos el % de referencia y costo unitario por linea
         self.get_ref_percentage(cr, uid, import_row.id, import_row.purchase_related_ids, context)
+        # Se actualiza el precio de coste de los productos con el costo real del producto
         self.update_standard_price(cr, uid,  import_row.purchase_related_ids, context)
+        # Realizamos el calculo para generar una Nota de credito para el prveedor si existe diferencia de montos
         self.get_invoice_refund(cr, uid, ids, context)
         self.write(cr, uid, ids, {'state':'done'})
         return True
@@ -421,12 +471,63 @@ class purchase_import(osv.Model):
                 raise osv.except_osv(_('Error!'), _('No se agrego gastos de llegada.'))
         self.write(cr, uid, ids, {'state':'completed'})
         return True
+    
+    def cancel_import_draft(self, cr, uid, ids, context=None):
+        """Metodo que cancela las facturas de Gasto de porte y el pago de llegada estimado"""
+        # Objetos
+        invoice_obj = self.pool.get('account.invoice')
+        voucher_obj = self.pool.get('account.voucher')
+        # Registro de la importacion
+        import_row = self.browse(cr, uid, ids, context)[0]
+        invoice_ids = [invoice_row.id for invoice_row in import_row.invoice_supplier_ids]
+        # Si tiene facturas de gasto de porte o envio se ejecuta la funcion para cancelar
+        if invoice_ids:
+            invoice_obj.signal_workflow(cr, uid, invoice_ids, 'invoice_cancel', context=context)
+        # Si tiene creado un pago de estimado de llegada se cancela
+        if import_row.voucher_id:
+            voucher_obj.cancel_voucher(cr, uid, [import_row.voucher_id.id], context)
+        return True
+        
+    def cancel_import_estimated(self, cr, uid, ids, context=None):
+        if context is None:
+            context={}
+        # Objetos
+        purchase_obj = self.pool.get('purchase.order')
+        picking_obj = self.pool.get('stock.picking')
+        invoice_obj = self.pool.get('account.invoice')
+        move_obj = self.pool.get('stock.move')
+        context.update({'cancel_procurement':True})
+        # Registro de la importacion
+        purchase_ids = []
+        import_row = self.browse(cr, uid, ids, context)[0]
+        for purchase_row in import_row.purchase_related_ids:
+            move_ids = [move_row.id for picking_row in purchase_row.picking_ids for move_row in picking_row.move_lines ]
+            picking_ids = [picking_row.id for picking_row in purchase_row.picking_ids]
+            move_obj.write(cr, uid, move_ids, {'state':'cancel'})
+            picking_obj.action_cancel(cr, uid, picking_ids, context)
+            purchase_ids.append(purchase_row.id)
+            for line_row in purchase_row.order_line:
+                self.pool.get('purchase.order.line').write(cr, uid, [line_row.id],{'price_unit': line_row.supplier_product_cost})
+                self.pool.get('product.product').write(cr, uid, [line_row.product_id.id],{'standard_price': line_row.product_standard_price})
+        purchase_obj.action_cancel(cr, uid, purchase_ids, context)
+        purchase_obj.action_cancel_draft(cr, uid, purchase_ids, context)
+        # Si tiene facturas de gasto de porte o envio se ejecuta la funcion para cancelar
+        if import_row.invoice_refund_id:
+            invoice_obj.signal_workflow(cr, uid, [import_row.invoice_refund_id.id], 'invoice_cancel', context=context)
+        return True
         
     def action_import_cancel(self, cr, uid, ids, context=None):
         """
         Accion para cambiar el estado de la importacion a Finalizado
         """
-        self.write(cr, uid, ids, {'state':'cancel'})
+        import_row = self.browse(cr, uid, ids, context)[0]
+        self.cancel_import_draft(cr, uid, ids, context)
+        if import_row.state == 'estimated':
+            self.cancel_import_estimated(cr, uid, ids, context)
+        elif import_row.state in ('estimated','completed','done'):
+            self.cancel_import_estimated(cr, uid, ids, context)
+        self.write(cr, uid, ids, {'state':'cancel','voucher_id':False,'purchase_related_ids':[(6,False,[])],'expenses_total':0.0,'invoice_refund_id':False})
+        #~ self.write(cr, uid, ids, {'state':'cancel'})
         return True
         
     def action_import_cancel_draft(self, cr, uid, ids, context=None):
