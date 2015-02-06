@@ -28,5 +28,4 @@
 #
 #############################################################################
 
-import account_invoice
-import ir_attachment_facturae
+import email_template

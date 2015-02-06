@@ -28,5 +28,24 @@
 #
 #############################################################################
 
-import account_invoice
-import ir_attachment_facturae
+import base64
+import logging
+
+from openerp.osv import osv, fields
+from openerp.tools.translate import _
+from openerp import tools
+from openerp import netsvc
+
+class email_template(osv.osv):
+    _inherit = "email.template"
+    
+    def generate_email_batch(self, cr, uid, template_id, res_ids, context=None, fields=None):
+        values = super(email_template, self).generate_email_batch(cr, uid, template_id, res_ids, context, fields)
+        if context.get('active_model') == 'account.invoice':
+            attach_xml_ids = self.pool.get('ir.attachment').search(cr, uid, [('res_id','=',context.get('active_id')), ('file_type','=','application/xml'), ('res_model','=','account.invoice')], context = context)
+            attach_pdf_ids = self.pool.get('ir.attachment').search(cr, uid, [('res_id','=',context.get('active_id')), ('file_type','=','application/pdf'), ('res_model','=','account.invoice')], context = context)
+            if attach_xml_ids:
+                values[context.get('active_id')]['attachment_ids'].extend(attach_xml_ids)
+            if attach_pdf_ids:
+                values[context.get('active_id')]['attachment_ids'].extend(attach_pdf_ids)
+        return values

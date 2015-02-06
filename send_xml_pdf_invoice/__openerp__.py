@@ -28,5 +28,29 @@
 #
 #############################################################################
 
-import account_invoice
-import ir_attachment_facturae
+{
+    "name" : 'Send XML & PDF files by email on invoice',
+    "version" : '1.0',
+    "author" : 'Experts',
+    "category" : 'Custom Modules',
+    "website" : "http://experts.com.mx",
+    "description" : """
+        [EN]
+        This module adds XML to invoice mail template when this file exists.
+        If you want send cfd or cfdi invoice you need to create new template adding this pdf report \n\n
+        [ES]
+        Este módulo agrega el archivo XML a la plantilla de la factura.
+        Si se requiere enviar el PDF de la factura CFD o CFDI se requiere crear otra plantilla que tenga como adjunto este archivo, el XML se agregará automáticamente siempre y cuando ya esté generado.
+    """,
+    "init_xml" : [],
+    "depends" : ['account',],
+    "update_xml" : [
+        ],
+    "demo_xml" : [
+    ],
+    "test" : [
+    ],
+    "installable" : True,
+    "images": [],
+    "auto_install" : False,
+}
