@@ -144,4 +144,5 @@ class purchase_order_line(osv.Model):
         'supplier_product_cost': fields.float('Costo de proveedor'),
         'product_standard_price': fields.float('Costo al intrar'),
         'product_qty_before_incoming': fields.float('Cantidad al entrar'),
+        'price_unit_real': fields.float('Costo Real'),
     }

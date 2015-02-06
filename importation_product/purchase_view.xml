@@ -16,10 +16,11 @@
                     <button name="purchase_import" states="draft" string="Importar" type="object"/>
                 </button>
                 <xpath expr="//field[@name='order_line']/tree//field[@name='product_qty']" position="after">
-                    <field name="volume" readonly="1"/>
-                    <field name="weight" readonly="1"/>
-                    <field name="ref_percentage" readonly="1"/>
-                    <field name="unit_cost" readonly="1"/>
+                    <field name="volume" readonly="1" invisible="1"/>
+                    <field name="weight" readonly="1" invisible="1"/>
+                    <field name="ref_percentage" readonly="1" invisible="1"/>
+                    <field name="unit_cost" readonly="1" invisible="1"/>
+                    <field name="price_unit_real" readonly="1" invisible="1"/>
                 </xpath>
             </field>
         </record>

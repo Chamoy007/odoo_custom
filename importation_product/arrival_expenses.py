@@ -37,20 +37,21 @@ class arrival_expenses(osv.Model):
     
     
     _columns = {
-        'name': fields.char('Proveedor', size=128, required=True, readonly=True, help='Nombre del proveedor en el XMl.'),
-        'number': fields.char('Numero de Factura', size=64, required=True, readonly=True, help='Numero de la factura agregada.'),
-        'date_invoice': fields.char('Fecha de Factura', size=64, required=True, readonly=True, help='Fecha de la factura agregada.'),
-        'amount_total': fields.float('Monto Total', required=True, readonly=True, help='Monto total de la factura.'),
-        'amount_subtotal': fields.float('Subtotal', required=True, readonly=True, help='Monto sin IVA de la factura.'),
-        'amount_tax': fields.float('Impuesto', required=True, readonly=True, help='Monto de impuesto de la factura.'),
+        'name': fields.char('Proveedor', size=128, required=True, help='Nombre del proveedor en el XMl.'),
+        'number': fields.char('Numero de Factura', size=64, required=True, help='Numero de la factura agregada.'),
+        'date_invoice': fields.datetime('Fecha de Factura', required=True, help='Fecha de la factura agregada.'),
+        'amount_total': fields.float('Monto Total', required=True, help='Monto total de la factura.'),
+        'amount_subtotal': fields.float('Subtotal', required=True, help='Monto sin IVA de la factura.'),
+        'amount_tax': fields.float('Impuesto', required=True, help='Monto de impuesto de la factura.'),
         'tax': fields.boolean('IVA', help='Indica si esta factura se considero con IVA o sin él.'),
-        'arrival_expenses_line_ids': fields.one2many('arrival.expenses.line','arrival_expenses_id',readonly=True),
+        'arrival_expenses_line_ids': fields.one2many('arrival.expenses.line','arrival_expenses_id'),
         'import_id': fields.many2one('purchase.import', 'Importacion'),
-        'ir_attachment_id': fields.many2one('ir.attachment', 'Adjunto',readonly=True),
+        'ir_attachment_id': fields.many2one('ir.attachment', 'Adjunto'),
         'currency_id': fields.many2one('res.currency', 'Moneda', readonly=True),
     }
     
     _defaults = {
+        'tax':True,
     }
     
     def unlink(self, cr, uid, ids, context=None):
@@ -64,9 +65,9 @@ class arrival_expenses_line(osv.Model):
     _name = 'arrival.expenses.line'
     
     _columns = {
-        'name': fields.char('Prodcuto', size=128, required=True, readonly=True, help='Nombre del producto del XML.'),
-        'product_qty': fields.float('Cantidad', required=True, readonly=True),
-        'price_unit': fields.float('Precio', required=True, readonly=True),
+        'name': fields.char('Prodcuto', size=128, required=True, help='Nombre del producto del XML.'),
+        'product_qty': fields.float('Cantidad', required=True),
+        'price_unit': fields.float('Precio', required=True),
         'arrival_expenses_id': fields.many2one('arrival.expenses', 'Gasto de llegada'),
     }
     

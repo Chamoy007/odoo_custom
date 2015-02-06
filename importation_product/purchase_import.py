@@ -35,6 +35,7 @@ from openerp.tools.translate import _
 import time
 from openerp.tools import DEFAULT_SERVER_DATE_FORMAT, DEFAULT_SERVER_DATETIME_FORMAT
 from openerp import SUPERUSER_ID
+from datetime import datetime, timedelta
 
 class purchase_import(osv.Model):
     _name = 'purchase.import'
@@ -111,7 +112,7 @@ class purchase_import(osv.Model):
             help='Volumen total de la compra'),
         'total_weight': fields.function(_get_total_weight, method=True, type='float', string='Peso Total', store=False,
             help='Peso total de la compra'),
-        'xml_file':fields.binary('XML',readonly=True, states={'estimated': [('readonly', False)]}),
+        'xml_file':fields.binary('XML', readonly=True, filters='*.xml', states={'estimated': [('readonly', False)]}),
         'invoice_refund_id': fields.many2one('account.invoice', 'Nota de credito', readonly=True,copy=False),
     }
     
@@ -213,7 +214,7 @@ class purchase_import(osv.Model):
     
     def create_invoice(self, cr, uid, ids, context=None):
         """
-        Método para crear la factura con el gasto total
+        Método para crear la factura de Gasto de porte o envio validada
         """
         # objetos
         invoice_obj = self.pool.get('account.invoice')
@@ -240,6 +241,8 @@ class purchase_import(osv.Model):
             invoice_obj.write(cr, uid, [inv_id], data['value'], context=context)
         # Calculamos el precio de la factura
         invoice_obj.button_compute(cr, uid, [inv_id])
+        # Validamos la Factura
+        invoice_obj.signal_workflow(cr, uid, [inv_id], 'invoice_open', context=context)
         # Agregamos l afactura a la importacion y limpiamos los campos de proveedor y monto
         self.write(cr, uid, ids, {'invoice_supplier_ids': [(4,inv_id)],'supplier_id': False, 'amount_expense':0.0})
         return True
@@ -289,14 +292,18 @@ class purchase_import(osv.Model):
             for line_row in purchase_row.order_line:
                 # Se valida si el metodo de envio es Maritimo o arero para realizar el calculo de la referencia
                 if import_row.shipment_method == 'air':
+                    if not line_row.product_id.weight:
+                        raise osv.except_osv(_('Error'), _('El producto %s no tiene asignado un peso especifico.'%(line_row.product_id.partner_ref)))
                     ref_percentage = round(float(((line_row.product_id.weight / import_row.total_weight) * 100) * line_row.product_qty), 2)
                 elif import_row.shipment_method == 'maritime':
+                    if not line_row.product_id.volume:
+                        raise osv.except_osv(_('Error'), _('El producto %s no tiene asignado un volumen especifico.'%(line_row.product_id.partner_ref)))
                     ref_percentage = round(float(((line_row.product_id.volume / import_row.total_volume) * 100) * line_row.product_qty), 2)
                 # Calculamos el costo unitario que se sumara a cada precio de costo de las lineas de comrpa
                 unit_cost = round(float(((ref_percentage/line_row.product_qty) * import_row.expenses_total) / 100), 2)
                 new_cost = unit_cost + line_row.supplier_product_cost
                 # Actualizamos el precio de coste por linea de compra
-                self.pool.get('purchase.order.line').write(cr, uid, [line_row.id],{'ref_percentage': ref_percentage, 'unit_cost':unit_cost, 'price_unit':new_cost})
+                self.pool.get('purchase.order.line').write(cr, uid, [line_row.id],{'ref_percentage': ref_percentage, 'unit_cost':unit_cost, 'price_unit_real':new_cost})
         return True
     
     def calculate_product_cost(self, cr, uid, ids, context=None):
@@ -397,12 +404,17 @@ class purchase_import(osv.Model):
                 if line_row.product_id:
                     # Si el metodo de costeo del producto es Medio lo calculamos
                     if line_row.product_id.cost_method == 'average':
-                        new_std_price = ((line_row.product_standard_price * line_row.product_qty_before_incoming) + (line_row.price_unit * line_row.product_qty)) / (line_row.product_qty_before_incoming + line_row.product_qty)
+                        qty_1 = line_row.product_standard_price * line_row.product_qty_before_incoming
+                        qty_2 = line_row.price_unit_real * line_row.product_qty
+                        qty_sum = qty_1 + qty_2
+                        qty_stock = line_row.product_qty + line_row.product_qty_before_incoming
+                        res = qty_sum/qty_stock
+                        new_std_price = ((line_row.product_standard_price * line_row.product_qty_before_incoming) + (line_row.price_unit_real * line_row.product_qty)) / (line_row.product_qty_before_incoming + line_row.product_qty)
                         # Write the standard price, as SUPERUSER_ID because a warehouse manager may not have the right to write on products
                         product_obj.write(cr, SUPERUSER_ID, [line_row.product_id.id], {'standard_price': new_std_price}, context=context)
                     else:
                         # Write the standard price, as SUPERUSER_ID because a warehouse manager may not have the right to write on products
-                        product_obj.write(cr, SUPERUSER_ID, [line_row.product_id.id], {'standard_price': line_row.price_unit}, context=context)
+                        product_obj.write(cr, SUPERUSER_ID, [line_row.product_id.id], {'standard_price': line_row.price_unit_real}, context=context)
         return True
     
     def get_invoice_refund(self, cr, uid, ids, context=None):
@@ -502,8 +514,15 @@ class purchase_import(osv.Model):
         import_row = self.browse(cr, uid, ids, context)[0]
         for purchase_row in import_row.purchase_related_ids:
             move_ids = [move_row.id for picking_row in purchase_row.picking_ids for move_row in picking_row.move_lines ]
+            if move_ids:
+                move_obj.write(cr, uid, move_ids, {'state':'cancel'})
+                # ELIMINAR QUENT DE LOS MOVE
+                query = "SELECT quant_id FROM stock_quant_move_rel WHERE move_id in %s;"
+                cr.execute(query, (tuple(move_ids),))
+                quant_ids = [row[0] for row in cr.fetchall()]
+                if quant_ids:
+                    self.pool.get('stock.quant').unlink(cr, uid, quant_ids, context)
             picking_ids = [picking_row.id for picking_row in purchase_row.picking_ids]
-            move_obj.write(cr, uid, move_ids, {'state':'cancel'})
             picking_obj.action_cancel(cr, uid, picking_ids, context)
             purchase_ids.append(purchase_row.id)
             for line_row in purchase_row.order_line:
@@ -547,26 +566,31 @@ class purchase_import(osv.Model):
         number = ""
         supplier_name = ""
         date_m = ""
-        # Leemos el archivo
-        xml_data = base64.decodestring(xml_row.xml_file)
-        #~ xml_data = base64.decodestring(xml_row.xml_filexml_row.xml_filexml_row.xml_file)
-        dom = minidom.parseString(xml_data)
-        comp = dom.getElementsByTagName('cfdi:Comprobante')[0]
-        # Comparamos el RFC del XML y del proveedor seleccionado
-        transmitter = comp.getElementsByTagName("cfdi:Emisor")[0]
-        # Nombre del proveedor
-        supplier_name = transmitter.attributes['nombre'].value
-        # Obtenemos el key cfdi: Conceptos
-        xml_concepts = comp.getElementsByTagName("cfdi:Conceptos")[0]
-        xml_tax = comp.getElementsByTagName("cfdi:Impuestos")[0]
-        comp_keys = comp.attributes.keys()
-        # Obtenemos la fecha de factura
-        if 'fecha' in comp_keys:
-            date_xml = comp.attributes['fecha'].value
-        # Obtenemos la referencia de lafactura
-        #~ comp_keys = comp.attributes.keys()
-        if 'folio' in comp_keys:
-            number = comp.attributes['folio'].value
+        try:
+            # Leemos el archivo
+            xml_data = base64.decodestring(xml_row.xml_file)
+            #~ xml_data = base64.decodestring(xml_row.xml_filexml_row.xml_filexml_row.xml_file)
+            dom = minidom.parseString(xml_data)
+            comp = dom.getElementsByTagName('cfdi:Comprobante')[0]
+            # Comparamos el RFC del XML y del proveedor seleccionado
+            transmitter = comp.getElementsByTagName("cfdi:Emisor")[0]
+            # Nombre del proveedor
+            supplier_name = transmitter.attributes['nombre'].value
+            # Obtenemos el key cfdi: Conceptos
+            xml_concepts = comp.getElementsByTagName("cfdi:Conceptos")[0]
+            xml_tax = comp.getElementsByTagName("cfdi:Impuestos")[0]
+            comp_keys = comp.attributes.keys()
+            # Obtenemos la fecha de factura
+            if 'fecha' in comp_keys:
+                date_xml = comp.attributes['fecha'].value
+                date_invoice = datetime.strptime(date_xml, '%Y-%m-%dT%H:%M:%S').strftime('%Y-%m-%d %H:%M:%S')
+                date_m =  datetime.strptime(date_invoice ,'%Y-%m-%d %H:%M:%S')
+            # Obtenemos la referencia de lafactura
+            #~ comp_keys = comp.attributes.keys()
+            if 'folio' in comp_keys:
+                number = comp.attributes['folio'].value
+        except:
+            raise osv.except_osv(_('XML erroneo!'), _('El archivo no tiene la estructura correcta. \nRevisa el XML y despues intenta agregarlo de nuevo.'))
         total =  comp.attributes['total'].value
         subtotal = comp.attributes['subTotal'].value
         amount_tax = xml_tax.attributes['totalImpuestosTrasladados'].value
@@ -584,7 +608,7 @@ class purchase_import(osv.Model):
         supplier_vals = {
             'name': supplier_name,
             'number': number,
-            'date_invoice': date_xml, 
+            'date_invoice': date_m, 
             'amount_total': float(total), 
             'amount_subtotal': float(subtotal), 
             'amount_tax': float(amount_tax), 
