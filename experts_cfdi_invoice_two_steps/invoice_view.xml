@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<openerp>
+    <data>
+       
+        <record model="ir.ui.view" id="account_invoice_form_inh">
+            <field name="name">account.invoice.form.inh</field>
+            <field name="model">account.invoice</field>
+            <field name="inherit_id" ref="account.invoice_form" />
+            <field name="type">form</field>
+            <field name="arch" type="xml" >
+                <field name="date_due" position="before">
+                    <field name="sign" readonly="1"/>
+                </field>
+                <button name="invoice_open" position="before">
+                    <button name="create_cfdi" type="object" string="Crear CFDI" class="oe_highlight" attrs="{'invisible':['|',('state','not in', ('open','paid')),('sign','=',True)]}"/>
+                </button>
+            </field>
+        </record>
+        
+    </data>
+</openerp>
